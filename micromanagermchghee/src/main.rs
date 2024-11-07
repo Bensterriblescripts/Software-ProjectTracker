@@ -6,7 +6,11 @@ use windows::{
     Win32::Foundation::HWND,
     Win32::UI::WindowsAndMessaging::GetForegroundWindow
 };
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    thread::sleep,
+    time::Duration,
+};
 use windows::Win32::Foundation::GetLastError;
 
 struct VirtualDesktopManager {
@@ -46,27 +50,39 @@ fn getdesktopid() -> Option<GUID> {
     result
 }
 fn main() {
+
+    // Init Memory
     let mut desktops = std::collections::HashMap::with_capacity(8);
     if unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_err() } {
         println!("CoInitializeEx failed with error: {:?}", unsafe { GetLastError() });
     };
 
-    // Desktop Change
-    let Some(current_desktop_id) = getdesktopid() else {
-        eprintln!("Failed to get desktop ID");
-        return;
-    };
-    if !desktops.contains_key(&current_desktop_id) {
-        print!("New Desktop ID. Enter an alias: ");
-        io::stdout().flush().unwrap();
+    // Core
+    loop {
 
-        let mut input = String::with_capacity(32);
-        if io::stdin().read_line(&mut input).is_ok() {
-            desktops.insert(current_desktop_id, input.trim().to_string());
+        // Retrieve ID
+        let Some(current_desktop_id) = getdesktopid() else {
+            eprintln!("Failed to get desktop ID");
+            return;
+        };
+
+        // Desktop Change
+        if !desktops.contains_key(&current_desktop_id) {
+            print!("\nNew Desktop ID. Enter an alias: ");
+            io::stdout().flush().unwrap();
+
+            let mut input = String::with_capacity(32);
+            if io::stdin().read_line(&mut input).is_ok() {
+                desktops.insert(current_desktop_id, input.trim().to_string());
+            }
+            println!("Created New Desktop: {}", input);
+            println!("Current Desktops:");
+             for (key, value) in desktops.iter() {
+                println!("{key:?}: {value}");
+            }
         }
-    }
-    if let Some((key, value)) = desktops.iter().next() {
-        println!("Desktop {key:?} = {value}");
+
+        sleep(Duration::from_millis(100));
     }
 
     unsafe { CoUninitialize() };
