@@ -1,20 +1,24 @@
 use windows::{
     core::*,
     core::GUID,
-    Win32::System::Com::*,
-    Win32::UI::Shell::*,
-    Win32::Foundation::HWND,
-    Win32::Foundation::HANDLE,
-    Win32::UI::WindowsAndMessaging::GetForegroundWindow
+    Win32::{
+        System::Com::*,
+        UI::Shell::*,
+        Foundation::HWND,
+        UI::WindowsAndMessaging::GetForegroundWindow,
+        Foundation::GetLastError,
+    }
 };
 use std::{
     io::{self, Write},
-    thread::sleep,
     time::Duration,
     env,
-    fs
+    fs,
+    sync::{Arc, Mutex},
+    thread,
+    thread::sleep
 };
-use windows::Win32::Foundation::GetLastError;
+
 
 /* UI */
 slint::slint!{
@@ -91,54 +95,58 @@ fn main() {
     };
 
     // Init Memory
-    let mut desktops = std::collections::HashMap::with_capacity(8);
+    let desktops = Arc::new(Mutex::new(std::collections::HashMap::with_capacity(8)));
     if unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_err() } {
         println!("CoInitializeEx failed with error: {:?}", unsafe { GetLastError() });
     };
 
-    // Init Timer
+    // Init Window
     let testing = "Independent Assessor";
     let timer = Timer::new().unwrap();
     timer.set_display_text(testing.into());
 
     let window = timer.window();
-    window.set_position(slint::PhysicalPosition::new(1600,0)); // Window Positiom
+    window.set_position(slint::PhysicalPosition::new(1250, 1005)); // Window Position
 
-    let weak = timer.as_weak();
+    let weak = timer.as_weak(); // Weak Pointer
+    let desktops_clone = Arc::clone(&desktops); // Clone Desktop
 
-    timer.run().unwrap(); // Start
+    // Core Functionality
+    thread::spawn(move || {
+        loop {
+            if let Some(current_desktop_id) = getdesktopid() {
+                let mut desktops = desktops_clone.lock().unwrap();
 
-    // Core
-    loop {
+                if !desktops.contains_key(&current_desktop_id) {
+                    // Update UI from background thread
+                    weak.upgrade_in_event_loop(move |handle| {
+                        handle.set_display_text("New Desktop".into());
+                    }).unwrap();
 
-        let Some(current_desktop_id) = getdesktopid() else {
-            continue;
-        };
+                    print!("\nNew Desktop ID. Enter an alias: ");
+                    io::stdout().flush().unwrap();
 
-        if !desktops.contains_key(&current_desktop_id) {
+                    let mut input = String::with_capacity(32);
+                    if io::stdin().read_line(&mut input).is_ok() {
+                        let input_trimmed = input.trim().to_string();
+                        desktops.insert(current_desktop_id, input_trimmed.clone());
 
-            weak.upgrade_in_event_loop(move |handle| {
-                handle.set_display_text("New Desktop".into());
-            }).unwrap();
+                        // Update UI with new desktop name
+                        weak.upgrade_in_event_loop(move |handle| {
+                            handle.set_display_text(slint::SharedString::from(input_trimmed));
+                        }).unwrap();
+                    }
 
-            print!("\nNew Desktop ID. Enter an alias: ");
-            io::stdout().flush().unwrap();
-
-            let mut input = String::with_capacity(32); // Get New Alias
-            if io::stdin().read_line(&mut input).is_ok() {
-                desktops.insert(current_desktop_id, input.trim().to_string());
+                    println!("Current Desktops:");
+                    for (key, value) in desktops.iter() {
+                        println!("{key:?}: {value}");
+                    }
+                }
             }
-            weak.upgrade_in_event_loop(move |handle| { // Update Text
-                handle.set_display_text(input.into());
-            }).unwrap();
-            println!("Current Desktops:");
-             for (key, value) in desktops.iter() {
-                println!("{key:?}: {value}");
-            }
+
+            sleep(Duration::from_millis(100));
         }
+    });
 
-        sleep(Duration::from_millis(100));
-    }
-
-    unsafe { CoUninitialize() };
+    timer.run().unwrap(); // Start UI
 }
