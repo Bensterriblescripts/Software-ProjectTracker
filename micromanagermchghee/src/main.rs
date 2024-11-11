@@ -106,13 +106,13 @@ fn main() {
 
     // Init Window
     let testing = "Independent Assessor";
-    let timer = Timer::new().unwrap();
-    timer.set_display_text(testing.into());
+    let ui = Timer::new().unwrap();
+    ui.set_display_text(testing.into());
 
-    let window = timer.window();
+    let window = ui.window();
     window.set_position(slint::PhysicalPosition::new(1250, 1025)); // Window Position
 
-    let weak = timer.as_weak(); // Weak Pointer
+    let weak = ui.as_weak(); // Weak Pointer
     let desktops_clone = Arc::clone(&desktops); // Clone Desktop
 
     // Core Functionality
@@ -144,9 +144,14 @@ fn main() {
                         println!("{key:?}: {value}");
                     }
                 }
-                else if desktops.contains_key(&current_desktop_id) {
+                else {
+                    // Get the value before entering the closure
+                    let display_text = desktops.get(&current_desktop_id)
+                        .unwrap()
+                        .clone(); // Clone the String to own it in the closure
+
                     weak.upgrade_in_event_loop(move |handle| {
-                        handle.set_display_text(slint::SharedString::from(desktops.get(&current_desktop_id).unwrap()));
+                        handle.set_display_text(slint::SharedString::from(display_text));
                     }).unwrap();
                 }
             }
