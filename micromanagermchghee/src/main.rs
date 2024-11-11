@@ -106,7 +106,7 @@ fn main() {
     timer.set_display_text(testing.into());
 
     let window = timer.window();
-    window.set_position(slint::PhysicalPosition::new(1250, 1005)); // Window Position
+    window.set_position(slint::PhysicalPosition::new(1250, 1025)); // Window Position
 
     let weak = timer.as_weak(); // Weak Pointer
     let desktops_clone = Arc::clone(&desktops); // Clone Desktop
@@ -141,6 +141,11 @@ fn main() {
                     for (key, value) in desktops.iter() {
                         println!("{key:?}: {value}");
                     }
+                }
+                else if desktops.contains_key(&current_desktop_id) {
+                    weak.upgrade_in_event_loop(move |handle| {
+                        handle.set_display_text(slint::SharedString::from(desktops.get(&current_desktop_id).unwrap()));
+                    }).unwrap();
                 }
             }
 
