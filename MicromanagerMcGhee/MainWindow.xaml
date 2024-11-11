@@ -1,0 +1,44 @@
+﻿<Window x:Class="MicromanagerMcGhee.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        mc:Ignorable="d"
+        Title="Micromanager"
+        Height="45"
+        Width="250"
+        WindowStartupLocation="Manual"
+        Left="1300"
+        Top="1035"
+        ResizeMode="CanResize"
+        Background="Transparent"
+        AllowsTransparency="True"
+        WindowStyle="None"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        FontFamily="Cascadia Code"
+        FontSize="18">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Margin="0,0,0,10">
+            <TextBlock x:Name="DesktopAlias"
+                       Text="New Desktop"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,0,0,5"
+                       Visibility="Visible">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="3" Opacity="0.9" BlurRadius="5"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </StackPanel>
+    </Grid>
+</Window>
