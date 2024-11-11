@@ -5,7 +5,7 @@ use windows::{
         System::Com::*,
         UI::Shell::*,
         Foundation::HWND,
-        UI::WindowsAndMessaging::GetForegroundWindow,
+        UI::WindowsAndMessaging::*,
         Foundation::GetLastError,
     }
 };
@@ -16,9 +16,9 @@ use std::{
     fs,
     sync::{Arc, Mutex},
     thread,
-    thread::sleep
+    thread::sleep,
+    collections::HashMap
 };
-
 
 /* UI */
 slint::slint!{
@@ -51,7 +51,9 @@ fn check_program_folder() -> Result<()> {
 struct VirtualDesktopManager {
     manager: IVirtualDesktopManager,
 }
+
 const VIRTUAL_DESKTOP_MANAGER_CLSID: GUID = GUID::from_u128(0xaa509086_5ca9_4c25_8f95_589d3c07b48a);
+
 impl VirtualDesktopManager {
     fn new() -> Result<Self> {
         let manager: IVirtualDesktopManager = unsafe {
@@ -68,18 +70,18 @@ impl VirtualDesktopManager {
     fn is_window_on_current_desktop(&self, hwnd: HWND) -> Result<bool> {
         unsafe { Ok(self.manager.IsWindowOnCurrentVirtualDesktop(hwnd)?.as_bool()) }
     }
-
     fn get_window_desktop_id(&self, hwnd: HWND) -> Result<GUID> {
         unsafe { self.manager.GetWindowDesktopId(hwnd) }
     }
 }
+
 fn getdesktopid() -> Option<GUID> {
     let result = (|| {
         let vdm = VirtualDesktopManager::new().ok()?;
         let hwnd = unsafe { GetForegroundWindow() };
 
-        // Make sure the window is on the new desktop
-        vdm.is_window_on_current_desktop(hwnd).ok();
+        // pin_to_all_desktops(hwnd).ok(); // Pin to all while we're here
+        vdm.is_window_on_current_desktop(hwnd).ok(); // Make sure the window is on the new desktop
         vdm.get_window_desktop_id(hwnd).ok()
     })();
 
@@ -87,12 +89,14 @@ fn getdesktopid() -> Option<GUID> {
 }
 
 fn main() {
-
     // Init Storage
     if check_program_folder().is_err() {
         println!("Error creating folder");
         return;
     };
+
+    // Init Timers
+    let _times: HashMap<GUID, u32> = HashMap::new();
 
     // Init Memory
     let desktops = Arc::new(Mutex::new(std::collections::HashMap::with_capacity(8)));
@@ -102,14 +106,12 @@ fn main() {
 
     // Init Window
     let testing = "Independent Assessor";
-    let timer = Timer::new().unwrap();
-    timer.set_display_text(testing.into());
-
-    let window = timer.window();
-    window.set_position(slint::PhysicalPosition::new(1250, 1005)); // Window Position
-
-    let weak = timer.as_weak(); // Weak Pointer
-    let desktops_clone = Arc::clone(&desktops); // Clone Desktop
+    let ui = Timer::new().unwrap();
+    ui.set_display_text(testing.into());
+    let window = ui.window();
+    window.set_position(slint::PhysicalPosition::new(1250, 1005));
+    let weak = ui.as_weak();
+    let desktops_clone = Arc::clone(&desktops);
 
     // Core Functionality
     thread::spawn(move || {
@@ -118,7 +120,6 @@ fn main() {
                 let mut desktops = desktops_clone.lock().unwrap();
 
                 if !desktops.contains_key(&current_desktop_id) {
-                    // Update UI from background thread
                     weak.upgrade_in_event_loop(move |handle| {
                         handle.set_display_text("New Desktop".into());
                     }).unwrap();
@@ -131,7 +132,6 @@ fn main() {
                         let input_trimmed = input.trim().to_string();
                         desktops.insert(current_desktop_id, input_trimmed.clone());
 
-                        // Update UI with new desktop name
                         weak.upgrade_in_event_loop(move |handle| {
                             handle.set_display_text(slint::SharedString::from(input_trimmed));
                         }).unwrap();
@@ -148,5 +148,5 @@ fn main() {
         }
     });
 
-    timer.run().unwrap(); // Start UI
+    ui.run().unwrap();
 }
